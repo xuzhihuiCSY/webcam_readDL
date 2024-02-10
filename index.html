@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Driver's License Information Capture</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px; /* Add padding for the body content */
+            background-color: #f2f2f2;
+        }
+
+        #header {
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px; /* Add space between header and content */
+        }
+
+        #webcamContainer {
+            position: relative;
+            max-width: 640px; /* Limit the max width */
+            height: auto; /* Allow height to adjust automatically */
+            margin: 0 auto 20px; /* Center & add spacing below */
+            border: 5px solid #ccc;
+            border-radius: 10px;
+            overflow: hidden; /* Ensure a clean, boxy effect */
+        }
+
+        #webcam {
+            width: 100%; /* Occupy the full container width */
+        }
+
+        #capture {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        /* Enhancements to existing styles */
+        #textOutput,
+        #processOutput {
+            margin: 20px 0; /* Spacing above and below */
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 5px;
+        }
+        #overlay {
+            position: absolute;
+            width: 560px;
+            height: 345px;
+            border: 2px dashed #4CAF50; 
+            background-color: rgba(255, 255, 255, 0.5);
+            box-sizing: border-box;
+        }
+        @media (max-width: 768px) { 
+            #webcamContainer {
+                max-width: 95%; /* Limit width of webcam area on smaller screens */
+            }
+        }
+
+        @media (max-width: 480px) {
+            #capture {
+                font-size: 14px; /* Make button text smaller on mobile */
+            }
+        }
+    </style>
+    
+</head>
+<body>
+    <div id="header">
+        <h1>Driver's License Information Capture</h1>
+    </div>
+    <div id="webcamContainer">
+        <video id="webcam" autoplay playsinline></video>
+        <div id="overlay"></div>
+    </div>
+    <button id="capture">Capture and Scan License</button>
+    <div id="textOutput"></div>
+    <div id="processOutput" style="display: none;"></div>
+
+    <canvas id="canvas" width="640" height="480" style="display: none;"></canvas> <!-- Hide the canvas -->
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const webcamElement = document.getElementById('webcam');
+            const canvasElement = document.getElementById('canvas');
+            const captureButton = document.getElementById('capture');
+            const overlayElement = document.getElementById('overlay');
+            const textOutputElement = document.getElementById('textOutput');
+            const processOutputElement = document.getElementById('processOutput');
+            const context = canvasElement.getContext('2d');
+            let videoStream;
+            let combination1Found = false;
+            let combination2Found = false;
+            let combination3Found = false;
+            let foundCombinations = [];
+
+            async function initWebcam() {
+                try {
+                    videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    webcamElement.srcObject = videoStream;
+                    webcamElement.onloadedmetadata = () => {
+                        positionOverlay();
+                    };
+                } catch (err) {
+                    console.error("Error accessing the webcam: ", err);
+                }
+            }
+
+            function positionOverlay() {
+                overlayElement.style.left = `${(webcamElement.offsetWidth - overlayElement.offsetWidth) / 2}px`;
+                overlayElement.style.top = `${(webcamElement.offsetHeight - overlayElement.offsetHeight) / 2}px`;
+            }
+
+            function captureAndProcessImage() {
+                context.drawImage(webcamElement, 0, 0, canvasElement.width, canvasElement.height);
+                preprocessAndProcessImage();
+            }
+
+            function preprocessAndProcessImage() {
+                canvasElement.toBlob(blob => {
+                    console.log(blob);
+                    processImage(blob);
+                });
+            }
+
+            function processImage(blob) {
+                console.log('Processing image for OCR...');
+                const reader = new FileReader();
+                reader.readAsDataURL(blob);
+                reader.onloadend = function() {
+                    const base64data = reader.result;
+                    
+                    Tesseract.recognize(
+                        base64data,
+                        'eng', {
+                            logger: m => console.log(m)
+                        }
+                    ).then(({ data: { text } }) => {
+                        console.log('OCR Result:', text);
+                        // Preprocess text: remove all lowercase letters and symbols except '/' while preserving space and newline
+                        const preprocessedText = text.replace(/[^A-Z0-9\/\s\n]/g, ''); // Remove all lowercase letters and symbols except '/' while preserving space and newline
+                        console.log('Preprocessed Text:', preprocessedText);
+                        
+                        textOutputElement.innerText = preprocessedText;
+                        // First combination: 1 capital letter followed by 7 digits
+                        if (!combination1Found) {
+                            const match1 = text.match(/[A-Z]\d{7}/);
+                            if (match1) {
+                                console.log('Found combination 1:', match1[0]);
+                                foundCombinations.push(match1[0]);
+                                combination1Found = true;
+                                processOutputElement.innerText += `Found combination 1: ${match1[0]}\n`;
+                            }
+                        }
+
+                        // Second combination: Line starts with 'LN' followed by capital letters
+                        if (!combination2Found) {
+                            const match2 = text.match(/^LN [A-Z ]+/m);
+                            if (match2) {
+                                console.log('Found combination 2:', match2[0]);
+                                foundCombinations.push(match2[0]);
+                                combination2Found = true;
+                                processOutputElement.innerText += `Found combination 2: ${match2[0]}\n`;
+                            } else {
+                                processOutputElement.innerText += "Still looking for combination 2.\n";
+                            }
+                        }
+
+                        if (!combination3Found) {
+                            const match3 = text.match(/^FN [A-Z ]+/m);
+                            if (match3) {
+                                console.log('Found combination 3:', match3[0]);
+                                foundCombinations.push(match3[0]);
+                                combination3Found = true;
+                                processOutputElement.innerText += `Found combination 3: ${match3[0]}\n`;
+                            } else{
+                                processOutputElement.innerText += "Still looking for combination 3.\n";
+                            }
+                        }
+
+                        if (combination1Found && combination2Found && combination3Found) {
+                            console.log('All combinations found. Stopping scanning.');
+                            captureButton.disabled = true;
+                            textOutputElement.innerText = foundCombinations.join('\n');
+                            return;
+                        } else {
+                            // If not all combinations are found, capture and process another image
+                            if (!(combination1Found && combination2Found && combination3Found)) {
+                                captureAndProcessImage();
+                            }
+                        }
+                    }).catch(err => {
+                        console.error('OCR Error:', err);
+                    });
+                };
+            }
+
+            captureButton.addEventListener('click', captureAndProcessImage);
+            window.addEventListener('load', initWebcam);
+        });
+    </script>
+</body>
+</html>
