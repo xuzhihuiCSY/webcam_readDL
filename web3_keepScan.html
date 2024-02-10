@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Webcam Capture, Preprocess, and OCR Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5"></script>
+</head>
+<style>
+    #overlay {
+        border: 2px dashed #00FF00;
+        position: absolute;
+        width: 560px;
+        height: 345px;
+    }
+    #webcamContainer {
+        position: relative;
+        display: inline-block;
+    }
+    video, canvas {
+        display: block;
+    }
+</style>
+<body>
+    <h1>Driver's License Information Capture</h1>
+    <div id="webcamContainer">
+        <video id="webcam" autoplay playsinline width="640" height="480"></video>
+        <div id="overlay"></div>
+    </div>
+    <button id="capture">Capture Image</button>
+    <canvas id="canvas" width="640" height="480" style="display: none;"></canvas> <!-- Hide the canvas -->
+    <div id="textOutput"></div>
+
+    <script>
+        const webcamElement = document.getElementById('webcam');
+        const canvasElement = document.getElementById('canvas');
+        const captureButton = document.getElementById('capture');
+        const overlayElement = document.getElementById('overlay');
+        const textOutputElement = document.getElementById('textOutput');
+        const context = canvasElement.getContext('2d');
+        let videoStream;
+
+        async function initWebcam() {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                webcamElement.srcObject = videoStream;
+                webcamElement.onloadedmetadata = () => {
+                    positionOverlay();
+                };
+            } catch (err) {
+                console.error("Error accessing the webcam: ", err);
+            }
+        }
+
+        function positionOverlay() {
+            overlayElement.style.left = `${(webcamElement.offsetWidth - overlayElement.offsetWidth) / 2}px`;
+            overlayElement.style.top = `${(webcamElement.offsetHeight - overlayElement.offsetHeight) / 2}px`;
+        }
+
+        function captureAndProcessImage() {
+            context.drawImage(webcamElement, 0, 0, canvasElement.width, canvasElement.height);
+            preprocessAndProcessImage();
+        }
+
+        function preprocessAndProcessImage() {
+            canvasElement.toBlob(blob => {
+                console.log(blob);
+                processImage(blob);
+            });
+        }
+
+        function processImage(blob) {
+            console.log('Processing image for OCR...');
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = function() {
+                const base64data = reader.result;
+                
+                Tesseract.recognize(
+                    base64data,
+                    'eng', {
+                        logger: m => console.log(m)
+                    }
+                ).then(({ data: { text } }) => {
+                    console.log('OCR Result:', text);
+                    textOutputElement.innerText = text;
+                    if (text.includes('DL') && text.includes('FN') && text.includes('LN')) {
+                        console.log('Found DL, FN, LN:', text);
+                        // You can do further processing here
+                    } else {
+                        // If not found, capture and process another image
+                        captureAndProcessImage();
+                    }
+                }).catch(err => {
+                    console.error('OCR Error:', err);
+                });
+            };
+        }
+
+        captureButton.addEventListener('click', captureAndProcessImage);
+        window.addEventListener('load', initWebcam);
+    </script>
+</body>
+</html>

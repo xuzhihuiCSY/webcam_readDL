@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Webcam Capture, Preprocess, and OCR Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5"></script>
+</head>
+<style>
+    #overlay {
+        border: 2px dashed #00FF00;
+        position: absolute;
+        width: 560px;
+        height: 345px;
+    }
+    #webcamContainer {
+        position: relative;
+        display: inline-block;
+    }
+    video, canvas {
+        display: block;
+    }
+</style>
+<body>
+    <h1>Driver's License Information Capture</h1>
+    <div id="webcamContainer">
+        <video id="webcam" autoplay playsinline width="640" height="480"></video>
+        <div id="overlay"></div>
+    </div>
+    <button id="capture">Capture Image</button>
+    <canvas id="canvas" width="640" height="480" style="display: none;"></canvas> <!-- Hide the canvas -->
+    <div id="ProcessOutput"></div>
+    <div id="textOutput"></div>
+    
+
+    <script>
+        const webcamElement = document.getElementById('webcam');
+        const canvasElement = document.getElementById('canvas');
+        const captureButton = document.getElementById('capture');
+        const overlayElement = document.getElementById('overlay');
+        const textOutputElement = document.getElementById('textOutput');
+        const processOutputElement = document.getElementById('ProcessOutput');
+        const context = canvasElement.getContext('2d');
+        let videoStream;
+        let combination1Found = false;
+        let combination2Found = false;
+        let combination3Found = false;
+        let combination4Found = false;
+        let foundCombinations = [];
+
+        async function initWebcam() {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                webcamElement.srcObject = videoStream;
+                webcamElement.onloadedmetadata = () => {
+                    positionOverlay();
+                };
+            } catch (err) {
+                console.error("Error accessing the webcam: ", err);
+            }
+        }
+
+        function positionOverlay() {
+            overlayElement.style.left = `${(webcamElement.offsetWidth - overlayElement.offsetWidth) / 2}px`;
+            overlayElement.style.top = `${(webcamElement.offsetHeight - overlayElement.offsetHeight) / 2}px`;
+        }
+
+        function captureAndProcessImage() {
+            context.drawImage(webcamElement, 0, 0, canvasElement.width, canvasElement.height);
+            preprocessAndProcessImage();
+        }
+
+        function preprocessAndProcessImage() {
+            canvasElement.toBlob(blob => {
+                console.log(blob);
+                processImage(blob);
+            });
+        }
+
+        function processImage(blob) {
+            console.log('Processing image for OCR...');
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = function() {
+                const base64data = reader.result;
+                
+                Tesseract.recognize(
+                    base64data,
+                    'eng', {
+                        logger: m => console.log(m)
+                    }
+                ).then(({ data: { text } }) => {
+                    console.log('OCR Result:', text);
+                    // Preprocess text: remove all lowercase letters and symbols except '/' while preserving space and newline
+                    const preprocessedText = text.replace(/[^A-Z0-9\/\s\n]/g, ''); // Remove all lowercase letters and symbols except '/' while preserving space and newline
+                    console.log('Preprocessed Text:', preprocessedText);
+                    
+                    textOutputElement.innerText = preprocessedText;
+                    // First combination: 1 capital letter followed by 7 digits
+                    if (!combination1Found) {
+                        const match1 = text.match(/[A-Z]\d{7}/);
+                        if (match1) {
+                            console.log('Found combination 1:', match1[0]);
+                            foundCombinations.push(match1[0]);
+                            combination1Found = true;
+                            processOutputElement.innerText += `Found combination 1: ${match1[0]}\n`;
+                        } else {
+                            processOutputElement.innerText += "Still looking for combination 1.\n";
+                        }
+                    }
+
+                    // Second combination: Line starts with 'LN' followed by capital letters
+                    if (!combination2Found) {
+                        const match2 = text.match(/^LN [A-Z ]+/m);
+                        if (match2) {
+                            console.log('Found combination 2:', match2[0]);
+                            foundCombinations.push(match2[0]);
+                            combination2Found = true;
+                            processOutputElement.innerText += `Found combination 2: ${match2[0]}\n`;
+                        } else {
+                            processOutputElement.innerText += "Still looking for combination 2.\n";
+                        }
+                    }
+
+                    // Third combination: Line starts with 'FN' followed by capital letters
+                    if (!combination3Found) {
+                        const match3 = text.match(/^FN [A-Z ]+/m);
+                        if (match3) {
+                            console.log('Found combination 3:', match3[0]);
+                            foundCombinations.push(match3[0]);
+                            combination3Found = true;
+                            processOutputElement.innerText += `Found combination 3: ${match3[0]}\n`;
+                        } else{
+                            processOutputElement.innerText += "Still looking for combination 3.\n";
+                        }
+                    }
+
+                    if (!combination4Found) {
+                        const match4 = text.match(/EXP \d{2}\/\d{2}\/\d{4}/);
+                        if (match4) {
+                            console.log('Found combination 4:', match4[0]);
+                            foundCombinations.push(match4[0]);
+                            combination4Found = true;
+                            processOutputElement.innerText += `Found combination 4: ${match4[0]}\n`;
+                        } else {
+                            processOutputElement.innerText += "Still looking for combination 4.\n";
+                        }
+                    }
+                    // If all combinations are found, stop scanning and output all combinations
+                    if (combination1Found && combination2Found && combination3Found) {
+                        console.log('All combinations found. Stopping scanning.');
+                        captureButton.disabled = true; // Disable capture button
+                        textOutputElement.innerText = foundCombinations.join('\n');
+                        return; // Stop processing further images
+                    } else {
+                        // If not all combinations are found, capture and process another image
+                        if (!(combination1Found && combination2Found && combination3Found)) {
+                            captureAndProcessImage();
+                        }
+                    }
+                }).catch(err => {
+                    console.error('OCR Error:', err);
+                });
+            };
+        }
+
+        captureButton.addEventListener('click', captureAndProcessImage);
+        window.addEventListener('load', initWebcam);
+    </script>
+</body>
+</html>
