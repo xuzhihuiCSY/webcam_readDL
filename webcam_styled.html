@@ -61,6 +61,19 @@
             background-color: rgba(255, 255, 255, 0.5);
             box-sizing: border-box;
         }
+
+        #switchCamera {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #f2f2f2;
+            color: #333;
+            border: 2px solid #333;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
         @media (max-width: 768px) { 
             #webcamContainer {
                 max-width: 95%;
@@ -75,6 +88,10 @@
             #capture {
                 font-size: 14px;
             }
+
+            #switchCamera {
+                font-size: 14px;
+            }
         }
     </style>
     
@@ -83,12 +100,12 @@
     <div id="header">
         <h1>Driver's License Information Capture</h1>
     </div>
+    <button id="switchCamera">Switch Camera</button>
     <div id="webcamContainer">
         <video id="webcam" autoplay playsinline></video>
         <div id="overlay"></div>
     </div>
     <button id="capture">Capture and Scan License</button>
-    <button id="switchCamera">Switch Camera</button>
 
     <div id="textOutput"></div>
     <div id="processOutput"></div>
