@@ -10,7 +10,7 @@
             padding: 20px; /* Add padding for the body content */
             background-color: #f2f2f2;
         }
-
+    
         #header {
             background-color: #333;
             color: white;
@@ -18,7 +18,7 @@
             text-align: center;
             margin-bottom: 20px; /* Add space between header and content */
         }
-
+    
         #webcamContainer {
             position: relative;
             max-width: 640px; /* Limit the max width */
@@ -28,11 +28,11 @@
             border-radius: 10px;
             overflow: hidden; /* Ensure a clean, boxy effect */
         }
-
+    
         #webcam {
             width: 100%; /* Occupy the full container width */
         }
-
+    
         #capture {
             display: block;
             margin: 20px auto;
@@ -44,7 +44,7 @@
             border-radius: 5px;
             cursor: pointer;
         }
-
+    
         /* Enhancements to existing styles */
         #textOutput,
         #processOutput {
@@ -61,7 +61,7 @@
             background-color: rgba(255, 255, 255, 0.5);
             box-sizing: border-box;
         }
-
+    
         #switchCamera {
             display: block;
             margin: 20px auto;
@@ -73,27 +73,44 @@
             border-radius: 5px;
             cursor: pointer;
         }
-
+    
         @media (max-width: 768px) { 
-            #webcamContainer {
+            #webcamContainer,
+            #overlay {
                 max-width: 95%;
+                width: 95%; /* Adjust width to match device width */
             }
-
+    
             #overlay {
                 display: none;
             }
         }
-
+    
         @media (max-width: 480px) {
             #capture {
                 font-size: 14px;
             }
-
+    
             #switchCamera {
                 font-size: 14px;
             }
+    
+            #webcamContainer,
+            #overlay {
+                max-width: 100%;
+                width: 100%;
+            }
+    
+            #overlay {
+                width: calc(100% - 10px);
+                height: auto;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+            }
         }
     </style>
+    
     
 </head>
 <body>
